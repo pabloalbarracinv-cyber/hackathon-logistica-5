@@ -12,11 +12,13 @@ export default function App() {
   const [auraCanvaData, setAuraCanvaData] = useState(null);
   const messagesEndRef = useRef(null);
 
-  const fetchGeminiResponse = async (userMsg) => {
+  const fetchAIResponse = async (userMsg) => {
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        return { texto_hablado: "Falta configurar la llave de Gemini en el entorno.", ui_canva: null };
+      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+      if (!openaiKey && !geminiKey) {
+        return { texto_hablado: "Falta configurar la llave de OpenAI o Gemini en el entorno.", ui_canva: null };
       }
       
       const systemPrompt = `Eres A.U.R.A. (Autonomous Unified Resource Agent), la co-presentadora de un Hackathon de Logística 5.0. 
@@ -32,7 +34,49 @@ Siempre debes responder en formato JSON estrictamente, con dos claves:
 
 Aplica tu conocimiento de logística avanzada.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      // 1. Si hay llave de OpenAI, usamos GPT-4o-mini
+      if (openaiKey) {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Comando del host: ${userMsg}` }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          console.error("OpenAI API Error:", data);
+          return { texto_hablado: "Anomalía en la red neuronal OpenAI. Revisa los créditos o la llave.", ui_canva: null };
+        }
+
+        if (data.usage) {
+          const usage = {
+            timestamp: new Date().toISOString(),
+            model: 'gpt-4o-mini',
+            promptTokens: data.usage.prompt_tokens,
+            responseTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens
+          };
+          const pastUsage = JSON.parse(localStorage.getItem('aura_token_usage') || '[]');
+          pastUsage.push(usage);
+          localStorage.setItem('aura_token_usage', JSON.stringify(pastUsage));
+          console.log("A.U.R.A. (OpenAI) Token Usage Registered:", usage);
+        }
+
+        return JSON.parse(data.choices[0].message.content);
+      }
+
+      // 2. Fallback a Gemini
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -57,15 +101,15 @@ Aplica tu conocimiento de logística avanzada.`;
         const pastUsage = JSON.parse(localStorage.getItem('aura_token_usage') || '[]');
         pastUsage.push(usage);
         localStorage.setItem('aura_token_usage', JSON.stringify(pastUsage));
-        console.log("A.U.R.A. Token Usage Registered:", usage);
+        console.log("A.U.R.A. (Gemini) Token Usage Registered:", usage);
       }
 
       let textOut = data.candidates[0].content.parts[0].text;
       textOut = textOut.replace(/```json/gi, '').replace(/```/g, '').trim();
       return JSON.parse(textOut);
     } catch (e) {
-      console.error("Error consultando a Gemini:", e);
-      return { texto_hablado: "Error de conexión con la red neuronal central de Gemini. Es posible que el servidor necesite reiniciarse para leer las nuevas variables de entorno.", ui_canva: null };
+      console.error("Error consultando a la IA:", e);
+      return { texto_hablado: "Error de conexión con la red neuronal central.", ui_canva: null };
     }
   };
 
@@ -120,9 +164,9 @@ Aplica tu conocimiento de logística avanzada.`;
 
   const triggerAura = async (userMsg) => {
     setMessages(prev => [...prev, { role: 'host', text: userMsg }]);
-    setMessages(prev => [...prev, { role: 'aura', text: "Conectando con la red neuronal Gemini..." }]);
+    setMessages(prev => [...prev, { role: 'aura', text: "Conectando con la red neuronal..." }]);
     
-    const responseJson = await fetchGeminiResponse(userMsg);
+    const responseJson = await fetchAIResponse(userMsg);
     
     setMessages(prev => {
       const newArr = [...prev];
