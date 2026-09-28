@@ -26,19 +26,19 @@ export default function App() {
   const [liveFeed, setLiveFeed] = useState([
     {
       id: 'init-1',
-      time: '15:02:10',
+      time: '15:18:10',
       teamId: 'T-01_BODEGA',
-      file: 'src/algorithms/fifo_dispatch.ts',
+      file: 'src/warehouse/crossdocking_buffer.ts',
       scoreDelta: 4,
-      analysis: 'Optimización O(log n) en cola de despacho.'
+      analysis: 'Asignación dinámica de muelles de salida en patio.'
     },
     {
       id: 'init-2',
-      time: '15:05:42',
-      teamId: 'T-04_ADUANAS',
-      file: 'api/customs/tariff_validator.py',
+      time: '15:19:42',
+      teamId: 'T-07_RUTAS',
+      file: 'services/fleet_load_dispatcher.js',
       scoreDelta: 6,
-      analysis: 'Validación regex de subpartidas arancelarias DIAN.'
+      analysis: 'Cubicaje 3D y optimización de capacidad de tractocamiones.'
     }
   ]);
 
